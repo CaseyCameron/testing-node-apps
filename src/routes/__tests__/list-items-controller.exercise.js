@@ -14,7 +14,7 @@ import * as listItemsController from '../list-items-controller'
 jest.mock('../../db/books')
 jest.mock('../../db/list-items')
 
-beforeAll(() => {
+afterEach(() => {
   jest.clearAllMocks()
 })
 
@@ -74,4 +74,29 @@ test('setListItem sets the listItem on the req', async () => {
   expect(next).toHaveBeenCalledTimes(1)
 
   expect(req.listItem).toBe(listItem)
+})
+
+test('setListItem gives 404 if listItem does not exist', async () => {
+  listItemsDB.readById.mockResolvedValueOnce(null)
+  const fakeListItemId = 'FAKE_LIST_ITEM_ID'
+  const req = buildReq({params: {id: fakeListItemId}})
+  const res = buildRes()
+  const next = buildNext()
+
+  await listItemsController.setListItem(req, res, next)
+
+  expect(listItemsDB.readById).toHaveBeenCalledWith(fakeListItemId)
+  expect(listItemsDB.readById).toHaveBeenCalledTimes(1)
+
+  expect(next).not.toHaveBeenCalled()
+
+  expect(res.status).toHaveBeenCalledWith(404)
+  expect(res.status).toHaveBeenCalledTimes(1)
+  expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+    Array [
+      Object {
+        "message": "No list item was found with the id of FAKE_LIST_ITEM_ID",
+      },
+    ]
+  `)
 })
