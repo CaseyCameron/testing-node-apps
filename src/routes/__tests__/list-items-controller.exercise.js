@@ -132,17 +132,17 @@ test('setListItem returns a 403 error if the list item does not belong to the us
   `)
 })
 
-test(`getListItems returns a user's list items`, async() => {
+test(`getListItems returns a user's list items`, async () => {
   const user = buildUser()
   const books = [buildBook(), buildBook()]
   const userListItems = [
     buildListItem({
       ownerId: user.id,
-      bookId: books[0].id
+      bookId: books[0].id,
     }),
     buildListItem({
       ownerId: user.id,
-      bookId: books[1].id
+      bookId: books[1].id,
     }),
   ]
 
@@ -153,20 +153,50 @@ test(`getListItems returns a user's list items`, async() => {
   const res = buildRes()
 
   await listItemsController.getListItems(req, res)
-  expect(booksDB.readManyById).toHaveBeenCalledWith([
-    books[0].id,
-    books[1].id
-  ])
+  expect(booksDB.readManyById).toHaveBeenCalledWith([books[0].id, books[1].id])
   expect(booksDB.readManyById).toHaveBeenCalledTimes(1)
 
-  expect(listItemsDB.query).toHaveBeenCalledWith({ ownerId: user.id})
+  expect(listItemsDB.query).toHaveBeenCalledWith({ownerId: user.id})
   expect(listItemsDB.query).toHaveBeenCalledTimes(1)
 
   expect(res.json).toHaveBeenCalledWith({
     listItems: [
       {...userListItems[0], book: books[0]},
       {...userListItems[1], book: books[1]},
-    ]
+    ],
   })
+  expect(res.json).toHaveBeenCalledTimes(1)
+})
+
+test('createListItem returns a 400 if the user already has a list item', async () => {
+  const user = buildUser({id: 'FAKE_USER_ID'})
+  const book = buildBook({id: 'FAKE_BOOK_ID'})
+  const existingListItem = buildListItem({
+    ownerId: user.id,
+    bookId: book.id,
+  })
+
+  listItemsDB.query.mockResolvedValueOnce([existingListItem])
+
+  const req = buildReq({user, body: {bookId: book.id}})
+  const res = buildRes()
+
+  await listItemsController.createListItem(req, res)
+
+  expect(listItemsDB.query).toHaveBeenCalledWith({
+    ownerId: user.id,
+    bookId: book.id,
+  })
+  expect(listItemsDB.query).toHaveBeenCalledTimes(1)
+
+  expect(res.status).toHaveBeenCalledWith(400)
+  expect(res.status).toHaveBeenCalledTimes(1)
+  expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+    Array [
+      Object {
+        "message": "User FAKE_USER_ID already has a list item for the book with the ID FAKE_BOOK_ID",
+      },
+    ]
+  `)
   expect(res.json).toHaveBeenCalledTimes(1)
 })
