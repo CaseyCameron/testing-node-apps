@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getData, handleRequestFailure } from 'utils/async';
 import {resetDb} from 'utils/db-utils'
 import * as generate from 'utils/generate'
 import startServer from '../start'
@@ -13,31 +14,35 @@ beforeEach(() => resetDb)
 
 const baseURL = 'http://localhost:8000/api'
 const api = axios.create({baseURL})
+// on responses, intercept and manipulate with getData on success
+// or handleRequestFailure on failure
+api.interceptors.response.use(getData, handleRequestFailure)
 
 test('auth flow', async () => {
   // register
   const {username, password} = generate.loginForm()
-  const registrationResult = await api.post('auth/register', {
+  const rData = await api.post('auth/register', {
   username, password
   })
-  expect(registrationResult.data.user).toMatchObject({
+
+  expect(rData.user).toMatchObject({
     id: expect.any(String),
     username: expect.any(String),
     token: expect.any(String)
   })
   
   // login
-  const loginResult = await api.post('auth/login', {
+  const lData = await api.post('auth/login', {
     username,
     password,
     })
-  expect(loginResult.data.user).toEqual(registrationResult.data.user)
+  expect(lData.user).toEqual(rData.user)
 
   // get user
-  const getResult = await api.get('auth/me', {
+  const mData = await api.get('auth/me', {
     headers: {
-      Authorization: `Bearer ${loginResult.data.user.token}`
+      Authorization: `Bearer ${lData.user.token}`
     }
   })
-  expect(getResult.data.user).toEqual(loginResult.data.user)
+  expect(mData.user).toEqual(lData.user)
 })
